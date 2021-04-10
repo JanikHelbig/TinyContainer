@@ -1,0 +1,12 @@
+{
+  "name": "com.jnk.tinycontainer",
+  "version": "1.0.0",
+  "displayName": "Tiny Container",
+  "description": "Simple service locator implementation for Unity.",
+  "unity": "2020.3",
+  "author": {
+    "name": "Janik Helbig",
+    "email": "helbigjanik@gmail.com",
+    "url": "https://github.com/JanikHelbig"
+  }
+}
