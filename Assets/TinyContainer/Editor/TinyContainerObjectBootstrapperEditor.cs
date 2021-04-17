@@ -24,25 +24,25 @@ namespace Jnk.TinyContainer.Editor
         public override void OnInspectorGUI()
         {
             serializedObject.UpdateIfRequiredOrScript();
-            
+
             EditorGUILayout.PropertyField(_objectsProp);
-            
+
             var objects = typeof(TinyContainerObjectBootstrapper)
                 .GetField("objects", BindingFlags.NonPublic | BindingFlags.Instance)
-                ?.GetValue(target as TinyContainerObjectBootstrapper) as List<Object>;
+                .GetValue(target as TinyContainerObjectBootstrapper) as List<Object>;
 
             if (objects?.Count > 0)
             {
                 List<Object> suspiciousTypes = objects
                     .Where(x => x is GameObject || x is Material || x is Transform)
                     .ToList();
-                
+
                 if (suspiciousTypes.Count == 0)
                     return;
-                
+
                 _stringBuilder.Clear();
                 _stringBuilder.Append("Are you sure you want the following types to be registered with these objects?");
-                
+
                 foreach (Object type in suspiciousTypes)
                     _stringBuilder.AppendLine().Append("• ").Append(type.GetType().FullName).Append(" (").Append(type.name).Append(")");
 

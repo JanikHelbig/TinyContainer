@@ -12,7 +12,7 @@ namespace Jnk.TinyContainer
         protected override void Bootstrap()
         {
             foreach (Object obj in objects)
-                Container.RegisterInstance(obj.GetType(), obj);
+                Container.Register(obj.GetType(), obj);
         }
     }
 }
