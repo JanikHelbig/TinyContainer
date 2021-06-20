@@ -1,6 +1,9 @@
 # TinyContainer
 A simple service locator implementation for Unity.
 
+## Disclaimer
+This package is primarily for use in my personal projects and I almost certainly will be making breaking changes if I'm unhappy with the syntax / API.
+
 ## Installation
 You can install this package via the Unity Package Manager "Add package from git URL" option by using this URL:
 `https://github.com/JanikHelbig/TinyContainer.git?path=Assets/TinyContainer` or add `"com.jnk.tinycontainer" : "https://github.com/JanikHelbig/TinyContainer.git?path=Assets/TinyContainer"` to `Packages/manifest.json`.
