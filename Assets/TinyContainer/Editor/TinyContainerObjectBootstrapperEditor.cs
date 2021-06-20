@@ -10,7 +10,7 @@ using Object = UnityEngine.Object;
 namespace Jnk.TinyContainer.Editor
 {
     [CanEditMultipleObjects]
-    [CustomEditor(typeof(TinyContainerObjectBootstrapper))]
+    [CustomEditor(typeof(TinyContainerObjectInstaller))]
     public class TinyContainerObjectBootstrapperEditor : UnityEditor.Editor
     {
         private SerializedProperty _objectsProp;
@@ -27,9 +27,9 @@ namespace Jnk.TinyContainer.Editor
 
             EditorGUILayout.PropertyField(_objectsProp);
 
-            var objects = typeof(TinyContainerObjectBootstrapper)
+            var objects = typeof(TinyContainerObjectInstaller)
                 .GetField("objects", BindingFlags.NonPublic | BindingFlags.Instance)
-                .GetValue(target as TinyContainerObjectBootstrapper) as List<Object>;
+                .GetValue(target as TinyContainerObjectInstaller) as List<Object>;
 
             if (objects?.Count > 0)
             {

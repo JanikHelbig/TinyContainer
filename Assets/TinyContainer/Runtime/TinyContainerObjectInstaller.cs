@@ -4,15 +4,17 @@ using UnityEngine;
 namespace Jnk.TinyContainer
 {
     [AddComponentMenu("TinyContainer/TinyContainer Object Bootstrapper")]
-    public class TinyContainerObjectBootstrapper : TinyContainerBootstrapperBase
+    public class TinyContainerObjectInstaller : MonoBehaviour
     {
         [SerializeField]
         private List<Object> objects;
-        
-        protected override void Bootstrap()
+
+        protected void Awake()
         {
+            TinyContainer container = TinyContainer.For(this);
+
             foreach (Object obj in objects)
-                Container.Register(obj.GetType(), obj);
+                container.Register(obj.GetType(), obj);
         }
     }
 }

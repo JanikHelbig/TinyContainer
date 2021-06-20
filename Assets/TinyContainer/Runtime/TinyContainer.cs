@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
 using UnityEngine;
+using Scene = UnityEngine.SceneManagement.Scene;
 
 namespace Jnk.TinyContainer
 {
@@ -8,11 +11,9 @@ namespace Jnk.TinyContainer
     [AddComponentMenu("TinyContainer/TinyContainer")]
     public class TinyContainer : MonoBehaviour
     {
-        private readonly Dictionary<Type, object> _instances = new Dictionary<Type, object>();
-        private readonly Dictionary<Type, Func<TinyContainer, object>> _lazyInstances = new Dictionary<Type, Func<TinyContainer, object>>();
-        private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new Dictionary<Type, Func<TinyContainer, object>>();
-
         private static TinyContainer _root;
+        private static Dictionary<Scene, TinyContainer> _sceneContainers;
+        private static List<GameObject> _temporarySceneGameObjects;
 
         /// <summary>
         /// The root container instance.
@@ -37,24 +38,73 @@ namespace Jnk.TinyContainer
             }
         }
 
-        internal void ConfigureAsRoot()
+        [SerializeField]
+        private bool disposeOnDestroy = true;
+
+        private readonly Dictionary<Type, object> _instances = new Dictionary<Type, object>();
+        private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new Dictionary<Type, Func<TinyContainer, object>>();
+
+        internal void ConfigureAsRoot(bool dontDestroyOnLoad)
         {
             if (_root != null && _root != this)
             {
-                Debug.LogWarning("TinyContainer Root has already been configured.", this);
+                Debug.LogError("TinyContainer Root has already been configured.", this);
                 return;
             }
 
             _root = this;
-            DontDestroyOnLoad(_root);
+
+            if (dontDestroyOnLoad)
+                DontDestroyOnLoad(_root);
+        }
+
+        internal void ConfigureForScene()
+        {
+            Scene scene = gameObject.scene;
+
+            if (_sceneContainers.ContainsKey(scene))
+            {
+                Debug.LogError($"TinyContainer for the scene {scene.name} has already been configured.", this);
+                return;
+            }
+
+            _sceneContainers[scene] = this;
         }
 
         /// <summary>
-        /// Returns the closest <see cref="TinyContainer"/> upwards in the hierarchy. Falls back to the root container.
+        /// Returns the <see cref="TinyContainer"/> configured for the scene of the MonoBehaviour. Falls back to the root.
+        /// </summary>
+        public static TinyContainer ForSceneOf(MonoBehaviour monoBehaviour)
+        {
+            Scene scene = monoBehaviour.gameObject.scene;
+
+            if (_sceneContainers.TryGetValue(scene, out TinyContainer container) && container != monoBehaviour)
+                return container;
+
+            _temporarySceneGameObjects.Clear();
+            scene.GetRootGameObjects(_temporarySceneGameObjects);
+
+            foreach (GameObject go in _temporarySceneGameObjects)
+            {
+                if (go.TryGetComponent(out TinyContainerScene sceneContainer) == false)
+                    continue;
+
+                if (sceneContainer.Container == monoBehaviour)
+                    continue;
+
+                sceneContainer.BootstrapOnDemand();
+                return sceneContainer.Container;
+            }
+
+            return Root;
+        }
+
+        /// <summary>
+        /// Returns the closest <see cref="TinyContainer"/> upwards in the hierarchy. Falls back to the scene container, then to the root.
         /// </summary>
         public static TinyContainer For(MonoBehaviour monoBehaviour)
         {
-            return monoBehaviour.GetComponentInParent<TinyContainer>().IsNull() ?? Root;
+            return monoBehaviour.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(monoBehaviour) ?? Root;
         }
 
         /// <summary>
@@ -68,14 +118,14 @@ namespace Jnk.TinyContainer
             if (TryGetInstance(type, ref instance))
                 return this;
 
-            if (TryGetInstanceLazily(type, ref instance))
-                return this;
-
             if (TryGetInstanceFromFactory(type, ref instance))
                 return this;
 
-            if (TryGetInstanceFromParentContainer(out instance))
+            if (TryGetNextContainerInHierarchy(out TinyContainer nextContainer))
+            {
+                nextContainer.Get(out instance);
                 return this;
+            }
 
             Debug.LogError($"Could not find instance for parameter of type {type.FullName}.", this);
             return this;
@@ -109,19 +159,6 @@ namespace Jnk.TinyContainer
         }
 
         /// <summary>
-        /// Register a factory method for instantiating the instance on demand.
-        /// </summary>
-        public TinyContainer RegisterLazy<T>(Func<TinyContainer, T> factoryMethod) where T : class
-        {
-            Type type = typeof(T);
-
-            if (IsNotRegistered(type))
-                _lazyInstances[type] = factoryMethod;
-
-            return this;
-        }
-
-        /// <summary>
         /// Register a per-request factory method with the container.
         /// </summary>
         public TinyContainer RegisterPerRequest<T>(Func<TinyContainer, T> factoryMethod) where T : class
@@ -136,13 +173,12 @@ namespace Jnk.TinyContainer
 
         private bool IsNotRegistered(Type type)
         {
-            if (_instances.ContainsKey(type) || _lazyInstances.ContainsKey(type) || _factories.ContainsKey(type))
+            if (_instances.ContainsKey(type) || _factories.ContainsKey(type))
             {
                 Debug.LogWarning($"Type {type.FullName} has already been registered. Skipping.", this);
                 return false;
             }
 
-            Debug.Log($"Type {type.FullName} registered.", this);
             return true;
         }
 
@@ -152,19 +188,6 @@ namespace Jnk.TinyContainer
                 return false;
 
             instance = (T) obj;
-
-            return true;
-        }
-
-        private bool TryGetInstanceLazily<T>(Type type, ref T instance) where T : class
-        {
-            if (false == _lazyInstances.TryGetValue(type, out Func<TinyContainer, object> objFactory))
-                return false;
-
-            instance = (T) objFactory.Invoke(this);
-
-            _lazyInstances.Remove(type);
-            _instances.Add(type, instance);
 
             return true;
         }
@@ -179,18 +202,51 @@ namespace Jnk.TinyContainer
             return true;
         }
 
-        private bool TryGetInstanceFromParentContainer<T>(out T instance) where T : class
+        private bool TryGetNextContainerInHierarchy(out TinyContainer container)
         {
             if (this == _root)
             {
-                instance = null;
+                container = null;
                 return false;
             }
 
-            TinyContainer parentContainer = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull() ?? Root;
-            parentContainer.Get(out instance);
-
-            return instance != null;
+            container = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull()
+                     ?? ForSceneOf(this)
+                     ?? Root;
+            return true;
         }
+
+        private void OnDestroy()
+        {
+            if (disposeOnDestroy == false)
+                return;
+
+            foreach (IDisposable disposable in _instances.Values.OfType<IDisposable>())
+                disposable.Dispose();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticFields()
+        {
+            _root = null;
+            _sceneContainers = new Dictionary<Scene, TinyContainer>();
+            _temporarySceneGameObjects = new List<GameObject>();
+        }
+
+        #if UNITY_EDITOR
+
+        [MenuItem("GameObject/TinyContainer/Add Root Container")]
+        private static void AddRootContainer()
+        {
+            var go = new GameObject("TinyContainer [Root]", typeof(TinyContainerRoot));
+        }
+
+        [MenuItem("GameObject/TinyContainer/Add Scene Container")]
+        private static void AddSceneContainer()
+        {
+            var go = new GameObject("TinyContainer [Scene]", typeof(TinyContainerScene));
+        }
+
+        #endif
     }
 }

@@ -2,18 +2,15 @@
 
 namespace Jnk.TinyContainer
 {
-    [AddComponentMenu("TinyContainer/TinyContainer Root")]
-    public class TinyContainerRoot : TinyContainerBootstrapperBase
+    [AddComponentMenu("TinyContainer/TinyContainer Scene")]
+    public class TinyContainerScene : TinyContainerBootstrapperBase
     {
-        [SerializeField]
-        private bool dontDestroyOnLoad;
-
         private bool _hasBeenBootstrapped;
 
         protected override void Bootstrap()
         {
             if (_hasBeenBootstrapped == false)
-                Container.ConfigureAsRoot(dontDestroyOnLoad);
+                Container.ConfigureForScene();
 
             _hasBeenBootstrapped = true;
         }
