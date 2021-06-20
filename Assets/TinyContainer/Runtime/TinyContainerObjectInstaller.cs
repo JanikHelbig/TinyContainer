@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Jnk.TinyContainer
 {
-    [AddComponentMenu("TinyContainer/TinyContainer Object Bootstrapper")]
+    [AddComponentMenu("TinyContainer/TinyContainer Object Installer")]
     public class TinyContainerObjectInstaller : MonoBehaviour
     {
         [SerializeField]
