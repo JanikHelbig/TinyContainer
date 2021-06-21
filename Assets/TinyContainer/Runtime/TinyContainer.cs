@@ -108,30 +108,6 @@ namespace Jnk.TinyContainer
         }
 
         /// <summary>
-        /// Returns the first instance for the type upwards in the hierarchy.
-        /// </summary>
-        public TinyContainer Get<T>(out T instance) where T : class
-        {
-            Type type = typeof(T);
-            instance = null;
-
-            if (TryGetInstance(type, ref instance))
-                return this;
-
-            if (TryGetInstanceFromFactory(type, ref instance))
-                return this;
-
-            if (TryGetNextContainerInHierarchy(out TinyContainer nextContainer))
-            {
-                nextContainer.Get(out instance);
-                return this;
-            }
-
-            Debug.LogError($"Could not find instance for parameter of type {type.FullName}.", this);
-            return this;
-        }
-
-        /// <summary>
         /// Register the instance with the container.
         /// </summary>
         public TinyContainer Register<T>(T instance)
@@ -173,13 +149,36 @@ namespace Jnk.TinyContainer
 
         private bool IsNotRegistered(Type type)
         {
-            if (_instances.ContainsKey(type) || _factories.ContainsKey(type))
+            if (_instances.ContainsKey(type) == false &&
+                _factories.ContainsKey(type) == false)
+                return true;
+
+            Debug.LogError($"Type {type.FullName} has already been registered.", this);
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the first instance for the type upwards in the hierarchy.
+        /// </summary>
+        public TinyContainer Get<T>(out T instance) where T : class
+        {
+            Type type = typeof(T);
+            instance = null;
+
+            if (TryGetInstance(type, ref instance))
+                return this;
+
+            if (TryGetInstanceFromFactory(type, ref instance))
+                return this;
+
+            if (TryGetNextContainerInHierarchy(out TinyContainer nextContainer))
             {
-                Debug.LogWarning($"Type {type.FullName} has already been registered. Skipping.", this);
-                return false;
+                nextContainer.Get(out instance);
+                return this;
             }
 
-            return true;
+            Debug.LogError($"Could not find instance for parameter of type {type.FullName}.", this);
+            return this;
         }
 
         private bool TryGetInstance<T>(Type type, ref T instance) where T : class
@@ -210,16 +209,27 @@ namespace Jnk.TinyContainer
                 return false;
             }
 
-            container = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull()
-                     ?? ForSceneOf(this)
-                     ?? Root;
+            container = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(this);
             return true;
         }
 
         private void OnDestroy()
         {
-            if (disposeOnDestroy == false)
-                return;
+            UnregisterForSceneIfNecessary();
+            HandleRegisteredIDisposables();
+        }
+
+        private void UnregisterForSceneIfNecessary()
+        {
+            if (_sceneContainers.ContainsValue(this) == false) return;
+
+            bool removedSuccessfully = _sceneContainers.Remove(gameObject.scene);
+            Debug.Assert(removedSuccessfully, "Error when removing TinyContainer from scene dictionary. You might have moved the container to a different scene. This is not supported.");
+        }
+
+        private void HandleRegisteredIDisposables()
+        {
+            if (disposeOnDestroy == false) return;
 
             foreach (IDisposable disposable in _instances.Values.OfType<IDisposable>())
                 disposable.Dispose();
