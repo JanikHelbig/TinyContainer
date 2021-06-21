@@ -1,6 +1,6 @@
 {
   "name": "com.jnk.tinycontainer",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "displayName": "TinyContainer",
   "description": "A simple service locator implementation for Unity.",
   "unity": "2020.3",
