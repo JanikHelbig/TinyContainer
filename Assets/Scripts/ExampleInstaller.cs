@@ -8,10 +8,12 @@ namespace Examples
         private void Awake()
         {
             TinyContainer.Root
+                .Register(new UpdatePrinter())
                 .Register<ILocalization>(new MockLocalization());
 
             TinyContainer.ForSceneOf(this)
-                .Register<ISerializer>(new JsonSerializer());
+                .Register<ISerializer>(new JsonSerializer())
+                .RegisterPerRequest(_ => new UpdatePrinter());
         }
     }
 }

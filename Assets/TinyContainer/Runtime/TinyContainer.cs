@@ -141,8 +141,16 @@ namespace Jnk.TinyContainer
         {
             Type type = typeof(T);
 
-            if (IsNotRegistered(type))
-                _factories[type] = factoryMethod;
+            if (IsNotRegistered(type) == false)
+                return this;
+
+            if (type.IsAssignableFrom(typeof(IUpdateHandler)) == false)
+                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(IUpdateHandler.Update)} will not be called.");
+
+            if (type.IsAssignableFrom(typeof(IFixedUpdateHandler)) == false)
+                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(IFixedUpdateHandler.FixedUpdate)} will not be called.");
+
+            _factories[type] = factoryMethod;
 
             return this;
         }
@@ -211,6 +219,20 @@ namespace Jnk.TinyContainer
 
             container = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(this);
             return true;
+        }
+
+        private void Update()
+        {
+            foreach (object instance in _instances.Values)
+                if (instance is IUpdateHandler updateHandler)
+                    updateHandler.Update();
+        }
+
+        private void FixedUpdate()
+        {
+            foreach (object instance in _instances.Values)
+                if (instance is IFixedUpdateHandler fixedUpdateHandler)
+                    fixedUpdateHandler.FixedUpdate();
         }
 
         private void OnDestroy()
