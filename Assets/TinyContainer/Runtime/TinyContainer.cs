@@ -11,30 +11,30 @@ namespace Jnk.TinyContainer
     [AddComponentMenu("TinyContainer/TinyContainer")]
     public class TinyContainer : MonoBehaviour
     {
-        private static TinyContainer _root;
+        private static TinyContainer _global;
         private static Dictionary<Scene, TinyContainer> _sceneContainers;
         private static List<GameObject> _temporarySceneGameObjects;
 
         /// <summary>
-        /// The root container instance.
+        /// The global container instance.
         /// </summary>
-        public static TinyContainer Root
+        public static TinyContainer Global
         {
             get
             {
-                if (_root != null)
-                    return _root;
+                if (_global != null)
+                    return _global;
 
-                if (FindObjectOfType<TinyContainerRoot>() is {} root)
+                if (FindObjectOfType<TinyContainerGlobal>() is {} global)
                 {
-                    root.BootstrapOnDemand();
-                    return _root;
+                    global.BootstrapOnDemand();
+                    return _global;
                 }
 
-                var container = new GameObject("TinyContainer [Root]", typeof(TinyContainer));
-                container.AddComponent<TinyContainerRoot>().BootstrapOnDemand();
+                var container = new GameObject("TinyContainer [Global]", typeof(TinyContainer));
+                container.AddComponent<TinyContainerGlobal>().BootstrapOnDemand();
 
-                return _root;
+                return _global;
             }
         }
 
@@ -44,18 +44,18 @@ namespace Jnk.TinyContainer
         private readonly Dictionary<Type, object> _instances = new Dictionary<Type, object>();
         private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new Dictionary<Type, Func<TinyContainer, object>>();
 
-        internal void ConfigureAsRoot(bool dontDestroyOnLoad)
+        internal void ConfigureAsGlobal(bool dontDestroyOnLoad)
         {
-            if (_root != null && _root != this)
+            if (_global != null && _global != this)
             {
-                Debug.LogError("TinyContainer Root has already been configured.", this);
+                Debug.LogError("TinyContainer Global has already been configured.", this);
                 return;
             }
 
-            _root = this;
+            _global = this;
 
             if (dontDestroyOnLoad)
-                DontDestroyOnLoad(_root);
+                DontDestroyOnLoad(_global);
         }
 
         internal void ConfigureForScene()
@@ -72,7 +72,7 @@ namespace Jnk.TinyContainer
         }
 
         /// <summary>
-        /// Returns the <see cref="TinyContainer"/> configured for the scene of the MonoBehaviour. Falls back to the root.
+        /// Returns the <see cref="TinyContainer"/> configured for the scene of the MonoBehaviour. Falls back to the global instance.
         /// </summary>
         public static TinyContainer ForSceneOf(MonoBehaviour monoBehaviour)
         {
@@ -96,15 +96,15 @@ namespace Jnk.TinyContainer
                 return sceneContainer.Container;
             }
 
-            return Root;
+            return Global;
         }
 
         /// <summary>
-        /// Returns the closest <see cref="TinyContainer"/> upwards in the hierarchy. Falls back to the scene container, then to the root.
+        /// Returns the closest <see cref="TinyContainer"/> upwards in the hierarchy. Falls back to the scene container, then to the global instance.
         /// </summary>
         public static TinyContainer For(MonoBehaviour monoBehaviour)
         {
-            return monoBehaviour.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(monoBehaviour) ?? Root;
+            return monoBehaviour.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(monoBehaviour) ?? Global;
         }
 
         /// <summary>
@@ -211,7 +211,7 @@ namespace Jnk.TinyContainer
 
         private bool TryGetNextContainerInHierarchy(out TinyContainer container)
         {
-            if (this == _root)
+            if (this == _global)
             {
                 container = null;
                 return false;
@@ -243,7 +243,8 @@ namespace Jnk.TinyContainer
 
         private void UnregisterForSceneIfNecessary()
         {
-            if (_sceneContainers.ContainsValue(this) == false) return;
+            if (_sceneContainers == null || _sceneContainers.ContainsValue(this) == false)
+                return;
 
             bool removedSuccessfully = _sceneContainers.Remove(gameObject.scene);
             Debug.Assert(removedSuccessfully, "Error when removing TinyContainer from scene dictionary. You might have moved the container to a different scene. This is not supported.");
@@ -260,17 +261,17 @@ namespace Jnk.TinyContainer
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStaticFields()
         {
-            _root = null;
+            _global = null;
             _sceneContainers = new Dictionary<Scene, TinyContainer>();
             _temporarySceneGameObjects = new List<GameObject>();
         }
 
         #if UNITY_EDITOR
 
-        [MenuItem("GameObject/TinyContainer/Add Root Container")]
-        private static void AddRootContainer()
+        [MenuItem("GameObject/TinyContainer/Add Global Container")]
+        private static void AddGlobalContainer()
         {
-            var go = new GameObject("TinyContainer [Root]", typeof(TinyContainerRoot));
+            var go = new GameObject("TinyContainer [Global]", typeof(TinyContainerGlobal));
         }
 
         [MenuItem("GameObject/TinyContainer/Add Scene Container")]

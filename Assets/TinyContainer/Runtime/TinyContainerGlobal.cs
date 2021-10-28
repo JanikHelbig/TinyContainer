@@ -2,8 +2,8 @@
 
 namespace Jnk.TinyContainer
 {
-    [AddComponentMenu("TinyContainer/TinyContainer Root")]
-    public class TinyContainerRoot : TinyContainerBootstrapperBase
+    [AddComponentMenu("TinyContainer/TinyContainer Global")]
+    public class TinyContainerGlobal : TinyContainerBootstrapperBase
     {
         [SerializeField]
         private bool dontDestroyOnLoad;
@@ -13,7 +13,7 @@ namespace Jnk.TinyContainer
         protected override void Bootstrap()
         {
             if (_hasBeenBootstrapped == false)
-                Container.ConfigureAsRoot(dontDestroyOnLoad);
+                Container.ConfigureAsGlobal(dontDestroyOnLoad);
 
             _hasBeenBootstrapped = true;
         }
