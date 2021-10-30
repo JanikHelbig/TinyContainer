@@ -3,7 +3,7 @@ using Jnk.TinyContainer;
 
 namespace Examples
 {
-    public class UpdatePrinter : IUpdateHandler, IFixedUpdateHandler
+    public class LifeCyclePrinter : IUpdateHandler, IFixedUpdateHandler, ICustomStartHandler
     {
         public void Update()
         {
@@ -13,6 +13,11 @@ namespace Examples
         public void FixedUpdate()
         {
             Debug.Log("FixedUpdate");
+        }
+
+        public void Start()
+        {
+            Debug.Log("Start");
         }
     }
 }
