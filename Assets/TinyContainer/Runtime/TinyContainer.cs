@@ -44,7 +44,7 @@ namespace Jnk.TinyContainer
         private readonly Dictionary<Type, object> _instances = new Dictionary<Type, object>();
         private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new Dictionary<Type, Func<TinyContainer, object>>();
 
-        public ICollection<object> RegisteredInstances => _instances.Values;
+        public IEnumerable<object> RegisteredInstances => _instances.Values;
 
         internal void ConfigureAsGlobal(bool dontDestroyOnLoad)
         {
