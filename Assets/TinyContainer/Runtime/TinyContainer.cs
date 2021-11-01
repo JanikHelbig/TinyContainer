@@ -187,8 +187,25 @@ namespace Jnk.TinyContainer
                 return this;
             }
 
-            Debug.LogError($"Could not find instance for parameter of type {type.FullName}.", this);
+            Debug.LogError($"Could not find instance for parameter of type {type}.", this);
             return this;
+        }
+
+        /// <summary>
+        /// Returns the first instance for the type upwards in the hierarchy.
+        /// </summary>
+        public bool TryGet<T>(out T instance) where T : class
+        {
+            Type type = typeof(T);
+            instance = null;
+
+            if (TryGetInstance(type, ref instance))
+                return true;
+
+            if (TryGetInstanceFromFactory(type, ref instance))
+                return true;
+
+            return TryGetNextContainerInHierarchy(out TinyContainer nextContainer) && nextContainer.TryGet(out instance);
         }
 
         private bool TryGetInstance<T>(Type type, ref T instance) where T : class
@@ -249,7 +266,7 @@ namespace Jnk.TinyContainer
                 return;
 
             bool removedSuccessfully = _sceneContainers.Remove(gameObject.scene);
-            Debug.Assert(removedSuccessfully, "Error when removing TinyContainer from scene dictionary. You might have moved the container to a different scene. This is not supported.");
+            Debug.Assert(removedSuccessfully, "Error when removing TinyContainer from scene dictionary. You might have moved the container to a different scene. This is not supported.", this);
         }
 
         private void HandleRegisteredIDisposables()
