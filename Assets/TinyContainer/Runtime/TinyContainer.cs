@@ -187,8 +187,24 @@ namespace Jnk.TinyContainer
                 return this;
             }
 
-            Debug.LogError($"Could not find instance for parameter of type {type}.", this);
-            return this;
+            throw new TypeNotFoundException($"Could not resolve type '{typeof(T).Name}'.");
+        }
+
+        public T Get<T>() where T : class
+        {
+            Type type = typeof(T);
+            T instance = null;
+
+            if (TryGetInstance(type, ref instance))
+                return instance;
+
+            if (TryGetInstanceFromFactory(type, ref instance))
+                return instance;
+
+            if (TryGetNextContainerInHierarchy(out TinyContainer nextContainer))
+                return nextContainer.Get<T>();
+
+            throw new TypeNotFoundException($"Could not resolve type '{typeof(T).Name}'.");
         }
 
         /// <summary>
