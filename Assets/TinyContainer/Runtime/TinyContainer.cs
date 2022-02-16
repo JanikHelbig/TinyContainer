@@ -38,6 +38,8 @@ namespace Jnk.TinyContainer
             }
         }
 
+        public static bool IsGlobalConfigured => _global != null;
+
         [SerializeField]
         private bool disposeOnDestroy = true;
 
