@@ -50,9 +50,15 @@ namespace Jnk.TinyContainer
 
         internal void ConfigureAsGlobal(bool dontDestroyOnLoad)
         {
+            if (_global != null && _global == this)
+            {
+                Debug.LogWarning("This TinyContainer has already been configured as the Global instance.", this);
+                return;
+            }
+
             if (_global != null && _global != this)
             {
-                Debug.LogError("TinyContainer Global has already been configured.", this);
+                Debug.LogError("Another TinyContainer has already been configured as the Global instance.", this);
                 return;
             }
 
@@ -68,7 +74,7 @@ namespace Jnk.TinyContainer
 
             if (_sceneContainers.ContainsKey(scene))
             {
-                Debug.LogError($"TinyContainer for the scene {scene.name} has already been configured.", this);
+                Debug.LogError($"Another TinyContainer has already been configured for scene '{scene.name}'.", this);
                 return;
             }
 
