@@ -9,10 +9,12 @@ namespace Jnk.TinyContainer.Editor
     [CustomEditor(typeof(TinyContainer))]
     public class TinyContainerEditor : UnityEditor.Editor
     {
+        private SerializedProperty _enabledEventFunctionsProp;
         private SerializedProperty _disposeOnDestroyProp;
 
         private void OnEnable()
         {
+            _enabledEventFunctionsProp = serializedObject.FindProperty("enabledEventFunctions");
             _disposeOnDestroyProp = serializedObject.FindProperty("disposeOnDestroy");
         }
 
@@ -22,6 +24,7 @@ namespace Jnk.TinyContainer.Editor
 
             serializedObject.UpdateIfRequiredOrScript();
 
+            EditorGUILayout.PropertyField(_enabledEventFunctionsProp);
             EditorGUILayout.PropertyField(_disposeOnDestroyProp, new GUIContent("Dispose IDisposables On Destroy"));
 
             var instances = typeof(TinyContainer)

@@ -40,11 +40,17 @@ namespace Jnk.TinyContainer
 
         public static bool IsGlobalConfigured => _global != null;
 
-        [SerializeField]
-        private bool disposeOnDestroy = true;
+        [SerializeField] private EventFunction enabledEventFunctions = EventFunction.FixedUpdate | EventFunction.Update | EventFunction.LateUpdate;
+        [SerializeField] private bool disposeOnDestroy = true;
 
         private readonly Dictionary<Type, object> _instances = new Dictionary<Type, object>();
         private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new Dictionary<Type, Func<TinyContainer, object>>();
+
+        public EventFunction EnabledEventFunctions
+        {
+            get => enabledEventFunctions;
+            set => enabledEventFunctions = value;
+        }
 
         public IEnumerable<object> RegisteredInstances => _instances.Values;
 
@@ -264,18 +270,31 @@ namespace Jnk.TinyContainer
             return true;
         }
 
-        private void Update()
-        {
-            foreach (object instance in _instances.Values)
-                if (instance is IUpdateHandler updateHandler)
-                    updateHandler.Update();
-        }
-
         private void FixedUpdate()
         {
+            if (!enabledEventFunctions.HasFlag(EventFunction.FixedUpdate))
+                return;
+
             foreach (object instance in _instances.Values)
-                if (instance is IFixedUpdateHandler fixedUpdateHandler)
-                    fixedUpdateHandler.FixedUpdate();
+                (instance as IFixedUpdateHandler)?.FixedUpdate();
+        }
+
+        private void Update()
+        {
+            if (!enabledEventFunctions.HasFlag(EventFunction.Update))
+                return;
+
+            foreach (object instance in _instances.Values)
+                (instance as IUpdateHandler)?.Update();
+        }
+
+        private void LateUpdate()
+        {
+            if (!enabledEventFunctions.HasFlag(EventFunction.LateUpdate))
+                return;
+
+            foreach (object instance in _instances.Values)
+                (instance as ILateUpdateHandler)?.LateUpdate();
         }
 
         private void OnDestroy()
