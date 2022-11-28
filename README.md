@@ -1,3 +1,5 @@
+[![openupm](https://img.shields.io/npm/v/com.jnk.tinycontainer?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.jnk.tinycontainer/)
+
 # TinyContainer
 A simple service locator implementation for Unity.
 
