@@ -43,8 +43,9 @@ namespace Jnk.TinyContainer
         [SerializeField] private EventFunction enabledEventFunctions = EventFunction.FixedUpdate | EventFunction.Update | EventFunction.LateUpdate;
         [SerializeField] private bool disposeOnDestroy = true;
 
-        private readonly Dictionary<Type, object> _instances = new Dictionary<Type, object>();
-        private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new Dictionary<Type, Func<TinyContainer, object>>();
+        private readonly Dictionary<Type, object> _instances = new();
+        private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new();
+        private bool _isInitialized;
 
         public EventFunction EnabledEventFunctions
         {
@@ -120,7 +121,9 @@ namespace Jnk.TinyContainer
         /// </summary>
         public static TinyContainer For(MonoBehaviour monoBehaviour)
         {
-            return monoBehaviour.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(monoBehaviour) ?? Global;
+            return monoBehaviour.IsNull()?.GetComponentInParent<TinyContainer>().IsNull()
+                   ?? ForSceneOf(monoBehaviour)
+                   ?? Global;
         }
 
         /// <summary>
