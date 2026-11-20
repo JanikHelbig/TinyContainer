@@ -10,7 +10,7 @@ This package is primarily for use in my personal projects and I almost certainly
 You can install this package via the Unity Package Manager "Add package from git URL" option by using this URL:
 `https://github.com/JanikHelbig/TinyContainer.git?path=Assets/TinyContainer` or add `"com.jnk.tinycontainer" : "https://github.com/JanikHelbig/TinyContainer.git?path=Assets/TinyContainer"` to `Packages/manifest.json`.
 
-Use the `#*.*.*` postfix to use a specific release of the package, e.g. `https://github.com/JanikHelbig/TinyContainer.git?path=Assets/TinyContainer#1.1.0`.
+Use the `#*.*.*` postfix to use a specific release of the package, e.g. `https://github.com/JanikHelbig/TinyContainer.git?path=Assets/TinyContainer#1.6.0`.
 
 ## Usage
 ### Accessing a TinyContainer
