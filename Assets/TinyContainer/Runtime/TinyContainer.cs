@@ -343,6 +343,12 @@ namespace Jnk.TinyContainer
         {
             UnregisterForSceneIfNecessary();
             HandleRegisteredIDisposables();
+
+            _instances.Clear();
+            _factories.Clear();
+
+            if (this == _global)
+                _global = null;
         }
 
         private void UnregisterForSceneIfNecessary()
@@ -364,12 +370,6 @@ namespace Jnk.TinyContainer
 
             foreach (IDisposable disposable in disposables)
                 disposable.Dispose();
-
-            _instances.Clear();
-            _factories.Clear();
-
-            if (this == _global)
-                _global = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
