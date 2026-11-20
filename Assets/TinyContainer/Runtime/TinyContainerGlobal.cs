@@ -8,9 +8,14 @@ namespace Jnk.TinyContainer
         [SerializeField]
         private bool dontDestroyOnLoad;
 
+        private bool _hasBeenBootstrapped;
+
         protected override void Bootstrap()
         {
-            Container.ConfigureAsGlobal(dontDestroyOnLoad);
+            if (_hasBeenBootstrapped == false)
+                Container.ConfigureAsGlobal(dontDestroyOnLoad);
+
+            _hasBeenBootstrapped = true;
         }
 
         public void BootstrapOnDemand() => Bootstrap();

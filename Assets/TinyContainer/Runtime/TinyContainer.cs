@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
 using UnityEngine;
 using Scene = UnityEngine.SceneManagement.Scene;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Jnk.TinyContainer
 {
@@ -12,8 +13,8 @@ namespace Jnk.TinyContainer
     public class TinyContainer : MonoBehaviour
     {
         private static TinyContainer _global;
-        private static Dictionary<Scene, TinyContainer> _sceneContainers;
-        private static List<GameObject> _temporarySceneGameObjects;
+        private static readonly Dictionary<Scene, TinyContainer> _sceneContainers = new();
+        private static readonly List<GameObject> _temporarySceneGameObjects = new();
 
         /// <summary>
         /// The global container instance.
@@ -25,7 +26,11 @@ namespace Jnk.TinyContainer
                 if (_global != null)
                     return _global;
 
+                #if UNITY_2023_1_OR_NEWER
+                if (FindAnyObjectByType<TinyContainerGlobal>() is {} global)
+                #else
                 if (FindObjectOfType<TinyContainerGlobal>() is {} global)
+                #endif
                 {
                     global.BootstrapOnDemand();
                     return _global;
@@ -45,7 +50,9 @@ namespace Jnk.TinyContainer
 
         private readonly Dictionary<Type, object> _instances = new();
         private readonly Dictionary<Type, Func<TinyContainer, object>> _factories = new();
-        private bool _isInitialized;
+        private readonly List<IFixedUpdateHandler> _fixedUpdateHandlers = new();
+        private readonly List<IUpdateHandler> _updateHandlers = new();
+        private readonly List<ILateUpdateHandler> _lateUpdateHandlers = new();
 
         public EventFunction EnabledEventFunctions
         {
@@ -54,6 +61,8 @@ namespace Jnk.TinyContainer
         }
 
         public IEnumerable<object> RegisteredInstances => _instances.Values;
+
+        private bool IsSceneContainer => _sceneContainers.TryGetValue(gameObject.scene, out TinyContainer container) && container == this;
 
         internal void ConfigureAsGlobal(bool dontDestroyOnLoad)
         {
@@ -84,6 +93,9 @@ namespace Jnk.TinyContainer
                 Debug.LogError($"Another TinyContainer has already been configured for scene '{scene.name}'.", this);
                 return;
             }
+
+            if (transform.parent != null)
+                Debug.LogWarning($"The scene container for scene '{scene.name}' is not on a root GameObject. Lookups from this scene that run before its Awake fall back to Global.", this);
 
             _sceneContainers[scene] = this;
         }
@@ -133,8 +145,11 @@ namespace Jnk.TinyContainer
         {
             Type type = typeof(T);
 
+            if (IsNullOrDestroyed(instance))
+                throw new ArgumentNullException(nameof(instance), $"Cannot register a null or destroyed instance as '{type.Name}'.");
+
             if (IsNotRegistered(type))
-                _instances[type] = instance;
+                AddInstance(type, instance);
 
             return this;
         }
@@ -144,11 +159,14 @@ namespace Jnk.TinyContainer
         /// </summary>
         public TinyContainer Register(Type type, object instance)
         {
+            if (IsNullOrDestroyed(instance))
+                throw new ArgumentNullException(nameof(instance), $"Cannot register a null or destroyed instance as '{type.Name}'.");
+
             if (type.IsInstanceOfType(instance) == false)
                 throw new ArgumentException("Type of instance does not match.", nameof(instance));
 
             if (IsNotRegistered(type))
-                _instances[type] = instance;
+                AddInstance(type, instance);
 
             return this;
         }
@@ -163,11 +181,14 @@ namespace Jnk.TinyContainer
             if (IsNotRegistered(type) == false)
                 return this;
 
-            if (type.IsAssignableFrom(typeof(IUpdateHandler)) == false)
-                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(IUpdateHandler.Update)} will not be called.");
+            if (typeof(IFixedUpdateHandler).IsAssignableFrom(type))
+                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(IFixedUpdateHandler.FixedUpdate)} will not be called.", this);
 
-            if (type.IsAssignableFrom(typeof(IFixedUpdateHandler)) == false)
-                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(IFixedUpdateHandler.FixedUpdate)} will not be called.");
+            if (typeof(IUpdateHandler).IsAssignableFrom(type))
+                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(IUpdateHandler.Update)} will not be called.", this);
+
+            if (typeof(ILateUpdateHandler).IsAssignableFrom(type))
+                Debug.LogWarning($"Type {type.Name} was registered per request. {nameof(ILateUpdateHandler.LateUpdate)} will not be called.", this);
 
             _factories[type] = factoryMethod;
 
@@ -184,27 +205,33 @@ namespace Jnk.TinyContainer
             return false;
         }
 
+        private void AddInstance(Type type, object instance)
+        {
+            _instances[type] = instance;
+
+            AddUnique(_fixedUpdateHandlers, instance);
+            AddUnique(_updateHandlers, instance);
+            AddUnique(_lateUpdateHandlers, instance);
+        }
+
+        private static void AddUnique<T>(List<T> list, object instance) where T : class
+        {
+            if (instance is T item && list.Exists(x => ReferenceEquals(x, item)) == false)
+                list.Add(item);
+        }
+
+        private static bool IsNullOrDestroyed(object instance)
+        {
+            return instance == null || instance is UnityEngine.Object unityObject && unityObject == null;
+        }
+
         /// <summary>
         /// Returns the first instance for the type upwards in the hierarchy.
         /// </summary>
         public TinyContainer Get<T>(out T instance) where T : class
         {
-            Type type = typeof(T);
-            instance = null;
-
-            if (TryGetInstance(type, ref instance))
-                return this;
-
-            if (TryGetInstanceFromFactory(type, ref instance))
-                return this;
-
-            if (TryGetNextContainerInHierarchy(out TinyContainer nextContainer))
-            {
-                nextContainer.Get(out instance);
-                return this;
-            }
-
-            throw new TypeNotFoundException($"Could not resolve type '{typeof(T).Name}'.");
+            instance = Get<T>();
+            return this;
         }
 
         public T Get<T>() where T : class
@@ -213,7 +240,12 @@ namespace Jnk.TinyContainer
             T instance = null;
 
             if (TryGetInstance(type, ref instance))
+            {
+                if (IsNullOrDestroyed(instance))
+                    throw new TypeNotFoundException($"The instance registered for type '{type.Name}' in container '{name}' (scene '{gameObject.scene.name}') has been destroyed.");
+
                 return instance;
+            }
 
             if (TryGetInstanceFromFactory(type, ref instance))
                 return instance;
@@ -221,7 +253,7 @@ namespace Jnk.TinyContainer
             if (TryGetNextContainerInHierarchy(out TinyContainer nextContainer))
                 return nextContainer.Get<T>();
 
-            throw new TypeNotFoundException($"Could not resolve type '{typeof(T).Name}'.");
+            throw new TypeNotFoundException($"Could not resolve type '{type.Name}'.");
         }
 
         /// <summary>
@@ -233,7 +265,13 @@ namespace Jnk.TinyContainer
             instance = null;
 
             if (TryGetInstance(type, ref instance))
-                return true;
+            {
+                if (IsNullOrDestroyed(instance) == false)
+                    return true;
+
+                instance = null;
+                return false;
+            }
 
             if (TryGetInstanceFromFactory(type, ref instance))
                 return true;
@@ -269,7 +307,8 @@ namespace Jnk.TinyContainer
                 return false;
             }
 
-            container = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull() ?? ForSceneOf(this);
+            container = transform.parent.IsNull()?.GetComponentInParent<TinyContainer>().IsNull()
+                        ?? (IsSceneContainer ? Global : ForSceneOf(this));
             return true;
         }
 
@@ -278,8 +317,8 @@ namespace Jnk.TinyContainer
             if (!enabledEventFunctions.HasFlag(EventFunction.FixedUpdate))
                 return;
 
-            foreach (object instance in _instances.Values)
-                (instance as IFixedUpdateHandler)?.FixedUpdate();
+            foreach (IFixedUpdateHandler handler in _fixedUpdateHandlers)
+                handler.FixedUpdate();
         }
 
         private void Update()
@@ -287,8 +326,8 @@ namespace Jnk.TinyContainer
             if (!enabledEventFunctions.HasFlag(EventFunction.Update))
                 return;
 
-            foreach (object instance in _instances.Values)
-                (instance as IUpdateHandler)?.Update();
+            foreach (IUpdateHandler handler in _updateHandlers)
+                handler.Update();
         }
 
         private void LateUpdate()
@@ -296,8 +335,8 @@ namespace Jnk.TinyContainer
             if (!enabledEventFunctions.HasFlag(EventFunction.LateUpdate))
                 return;
 
-            foreach (object instance in _instances.Values)
-                (instance as ILateUpdateHandler)?.LateUpdate();
+            foreach (ILateUpdateHandler handler in _lateUpdateHandlers)
+                handler.LateUpdate();
         }
 
         private void OnDestroy()
@@ -308,7 +347,7 @@ namespace Jnk.TinyContainer
 
         private void UnregisterForSceneIfNecessary()
         {
-            if (_sceneContainers == null || _sceneContainers.ContainsValue(this) == false)
+            if (_sceneContainers.ContainsValue(this) == false)
                 return;
 
             bool removedSuccessfully = _sceneContainers.Remove(gameObject.scene);
@@ -319,16 +358,26 @@ namespace Jnk.TinyContainer
         {
             if (disposeOnDestroy == false) return;
 
-            foreach (IDisposable disposable in _instances.Values.OfType<IDisposable>())
+            var disposables = new List<IDisposable>();
+            foreach (object instance in _instances.Values)
+                AddUnique(disposables, instance);
+
+            foreach (IDisposable disposable in disposables)
                 disposable.Dispose();
+
+            _instances.Clear();
+            _factories.Clear();
+
+            if (this == _global)
+                _global = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStaticFields()
         {
             _global = null;
-            _sceneContainers = new Dictionary<Scene, TinyContainer>();
-            _temporarySceneGameObjects = new List<GameObject>();
+            _sceneContainers.Clear();
+            _temporarySceneGameObjects.Clear();
         }
 
         #if UNITY_EDITOR

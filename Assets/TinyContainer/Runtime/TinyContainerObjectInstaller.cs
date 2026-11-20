@@ -13,8 +13,18 @@ namespace Jnk.TinyContainer
         {
             TinyContainer container = TinyContainer.For(this);
 
-            foreach (Object obj in objects)
+            for (var i = 0; i < objects.Count; i++)
+            {
+                Object obj = objects[i];
+
+                if (obj == null)
+                {
+                    Debug.LogError($"Element {i} of the {nameof(TinyContainerObjectInstaller)} on '{name}' is missing or not assigned and was not registered.", this);
+                    continue;
+                }
+
                 container.Register(obj.GetType(), obj);
+            }
         }
     }
 }

@@ -20,7 +20,7 @@ Use `TinyContainer.For(this)` in your MonoBehaviours to access the nearest `Tiny
 There is a singleton-like instance called the `Global` which all requests will fall back to.
 You can setup your `Global` manually by putting a GameObject with a `TinyContainer` and `TinyContainerGlobal` component at the scene root. Otherwise it's created automatically when `TinyContainer.Global` is first accessed.
 
-Additionally you can create a `TinyContainer` which belongs to a specific scene. If you add a `TinyContainerScene` component to a container, your MonoBehaviours can access it by using `TinyContainer.ForSceneOf(this)`, provided they belong to the same scene. When trying to find the closest container or trying to resolve a type, the request will try to locate a scene container before falling back to Global.
+Additionally you can create a `TinyContainer` which belongs to a specific scene. If you add a `TinyContainerScene` component to a container on a root GameObject, your MonoBehaviours can access it by using `TinyContainer.ForSceneOf(this)`, provided they belong to the same scene. When trying to find the closest container or trying to resolve a type, the request will try to locate a scene container before falling back to Global.
 
 ### Registering Instances
 You have two options when registering your types with a container.
